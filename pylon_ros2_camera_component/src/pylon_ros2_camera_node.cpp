@@ -165,6 +165,9 @@ void PylonROS2CameraNode::initPublishers()
   msg_name = msg_prefix + "image_raw";
   this->img_raw_pub_ = image_transport::create_camera_publisher(this, msg_name);
 
+  nitros_image_raw_pub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>>(
+    this, msg_name, "camera/image_raw",  nvidia::isaac_ros::nitros::NitrosStatisticsConfig(), output_qos);
+
   // blaze related topics
   msg_name = msg_prefix + "blaze_cloud"; this->blaze_cloud_topic_name_ = msg_name;
   this->blaze_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(msg_name, 10);
@@ -939,44 +942,72 @@ void PylonROS2CameraNode::spin()
         }
       }
 
-      if (this->img_raw_pub_.getNumSubscribers() > 0)
+      if (this->pylon_camera_parameter_set_.use_nitros_publisher_)
       {
-        // get actual cam_info-object in every frame, because it might have
-        // changed due to a 'set_camera_info'-service call
-        sensor_msgs::msg::CameraInfo cam_info = this->camera_info_manager_->getCameraInfo();
-        cam_info.header.stamp = this->img_raw_msg_.header.stamp;
-        // publish via image_transport
-        this->img_raw_pub_.publish(this->img_raw_msg_, cam_info);
-      }
+        // Get Size of Image
+        size_t cameraBufferSize{this->img_raw_msg_.step * this->img_raw_msg_.height};
 
-      // this->getNumSubscribersRectImagePub() involves that this->camera_info_manager_->isCalibrated() == true
-      if (this->getNumSubscribersRectImagePub() > 0)
-      {
-        this->cv_bridge_img_rect_->header.stamp = this->img_raw_msg_.header.stamp;
-        assert(this->pinhole_model_->initialized());
+        // Allocate CUDA Buffer to store the image
+        void * cudaBuffer;
+        cudaMalloc(&cudaBuffer, cameraBufferSize);
 
-        const int bit_depth = sensor_msgs::image_encodings::bitDepth(img_raw_msg_.encoding);
-        std::string rect_encoding = img_raw_msg_.encoding;
-        if (bit_depth == 8 && sensor_msgs::image_encodings::isBayer(rect_encoding))
+        // Copy Image to CUDA Buffer
+        cudaMemcpy(cudaBuffer, this->img_raw_msg_.data.data(), cameraBufferSize, cudaMemcpyHostToDevice);
+
+        std_msgs::msg::Header header;
+        header.stamp.sec = this->img_raw_msg_.header.stamp.sec;
+        header.stamp.nanosec = this->img_raw_msg_.header.stamp.nanosec;
+        header.frame_id = this->img_raw_msg_.header.frame_id;
+
+        nvidia::isaac_ros::nitros::NitrosImage cameraNitrosImage =
+          nvidia::isaac_ros::nitros::NitrosImageBuilder()
+          .WithHeader(header)
+          .WithEncoding(this->img_raw_msg_.encoding)
+          .WithDimensions(this->img_raw_msg_.height, this->img_raw_msg_.width)
+          .WithGpuData(cudaBuffer)
+          .Build();
+
+        this->nitros_image_raw_pub_->publish(std::move(cameraNitrosImage));
+      } else {
+        if (this->img_raw_pub_.getNumSubscribers() > 0)
         {
-          rect_encoding = "bgr8";
+          // get actual cam_info-object in every frame, because it might have
+          // changed due to a 'set_camera_info'-service call
+          sensor_msgs::msg::CameraInfo cam_info = this->camera_info_manager_->getCameraInfo();
+          cam_info.header.stamp = this->img_raw_msg_.header.stamp;
+          // publish via image_transport
+          this->img_raw_pub_.publish(this->img_raw_msg_, cam_info);
         }
-        else if (bit_depth == 16 && sensor_msgs::image_encodings::isBayer(rect_encoding))
+
+        // this->getNumSubscribersRectImagePub() involves that this->camera_info_manager_->isCalibrated() == true
+        if (this->getNumSubscribersRectImagePub() > 0)
         {
-          rect_encoding ="bgr16";
-        }
-        this->cv_bridge_img_rect_->encoding = rect_encoding;
-        
-        cv_bridge::CvImagePtr cv_img_raw = cv_bridge::toCvCopy(this->img_raw_msg_, rect_encoding);
-        if (cv_img_raw == nullptr)
-        {
-          RCLCPP_ERROR(LOGGER, "Failed to initialize rectified image, not publishing it");
-        }
-        else
-        {
-          this->pinhole_model_->fromCameraInfo(this->camera_info_manager_->getCameraInfo());
-          this->pinhole_model_->rectifyImage(cv_img_raw->image, this->cv_bridge_img_rect_->image);
-          this->img_rect_pub_->publish(this->cv_bridge_img_rect_->toImageMsg());
+          this->cv_bridge_img_rect_->header.stamp = this->img_raw_msg_.header.stamp;
+          assert(this->pinhole_model_->initialized());
+
+          const int bit_depth = sensor_msgs::image_encodings::bitDepth(img_raw_msg_.encoding);
+          std::string rect_encoding = img_raw_msg_.encoding;
+          if (bit_depth == 8 && sensor_msgs::image_encodings::isBayer(rect_encoding))
+          {
+            rect_encoding = "bgr8";
+          }
+          else if (bit_depth == 16 && sensor_msgs::image_encodings::isBayer(rect_encoding))
+          {
+            rect_encoding ="bgr16";
+          }
+          this->cv_bridge_img_rect_->encoding = rect_encoding;
+          
+          cv_bridge::CvImagePtr cv_img_raw = cv_bridge::toCvCopy(this->img_raw_msg_, rect_encoding);
+          if (cv_img_raw == nullptr)
+          {
+            RCLCPP_ERROR(LOGGER, "Failed to initialize rectified image, not publishing it");
+          }
+          else
+          {
+            this->pinhole_model_->fromCameraInfo(this->camera_info_manager_->getCameraInfo());
+            this->pinhole_model_->rectifyImage(cv_img_raw->image, this->cv_bridge_img_rect_->image);
+            this->img_rect_pub_->publish(this->cv_bridge_img_rect_->toImageMsg());
+          }
         }
       }
     }

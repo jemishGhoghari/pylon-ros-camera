@@ -85,6 +85,13 @@
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
 
+// Nitros Publisher
+#include <isaac_ros_managed_nitros/managed_nitros_publisher.hpp>
+#include <isaac_ros_nitros_image_type/nitros_image.hpp>
+#include <isaac_ros_nitros_image_type/nitros_image_builder.hpp>
+#include <isaac_ros_common/qos.hpp>
+#include <cuda_runtime.h>
+
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -125,6 +132,9 @@ using GrabImagesGoalHandle          = rclcpp_action::ServerGoalHandle<GrabImages
 using GrabBlazeDataAction           = pylon_ros2_camera_interfaces::action::GrabBlazeData;
 using GrabBlazeDataGoalHandle       = rclcpp_action::ServerGoalHandle<GrabBlazeDataAction>;
 
+namespace {
+    constexpr const char kDefaultQoS[] = "DEFAULT";
+}
 
 class PylonROS2CameraNode : public rclcpp::Node
 {
@@ -145,6 +155,12 @@ public:
    * @return the camera frame.
    */
   const std::string& cameraFrame() const;
+
+  /**
+   * @brief Nitros Publisher QoS
+   */
+  const rclcpp::QoS output_qos = ::isaac_ros::common::AddQosParameter(
+    *this, kDefaultQoS, "output_qos").keep_last(10);
 
 protected:
   
@@ -1674,6 +1690,9 @@ protected:
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr blaze_depth_map_color_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr blaze_confidence_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr blaze_cam_info_pub_;
+
+  // Nitros Publisher
+  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<nvidia::isaac_ros::nitros::NitrosImage>> nitros_image_raw_pub_;
 
   // services
   rclcpp::Service<GetIntegerSrv>::SharedPtr get_max_num_buffer_srv_;

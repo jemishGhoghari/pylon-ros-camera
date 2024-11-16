@@ -115,6 +115,11 @@ public:
     void setCameraInfoURL(rclcpp::Node& nh, const std::string& camera_info_url);
 
 public:
+    /**
+     * @brief Flag to use NitrOS publisher
+     */
+    bool use_nitros_publisher_;
+
     /** Binning factor to get downsampled images. It refers here to any camera
      * setting which combines rectangular neighborhoods of pixels into larger
      * "super-pixels." It reduces the resolution of the output image to

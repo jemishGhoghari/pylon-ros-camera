@@ -56,6 +56,10 @@ find_package(camera_info_manager REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(diagnostic_updater REQUIRED)
+find_package(isaac_ros_nitros REQUIRED)
+find_package(isaac_ros_managed_nitros REQUIRED)
+find_package(isaac_ros_nitros_image_type REQUIRED)
+find_package(isaac_ros_common REQUIRED)
 
 set(PYLON_ROS2_CAMERA_DEPENDENCIES
 	pylon_ros2_camera_interfaces
@@ -70,6 +74,10 @@ set(PYLON_ROS2_CAMERA_DEPENDENCIES
 	image_geometry
 	image_transport
 	diagnostic_updater
+	isaac_ros_nitros
+	isaac_ros_managed_nitros
+	isaac_ros_nitros_image_type
+	isaac_ros_common
 )
 
 set(PYLON_ROS2_CAMERA_FILE_PREFIX pylon_ros2_camera)
