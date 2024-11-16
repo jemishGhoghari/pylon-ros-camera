@@ -78,8 +78,7 @@ PylonROS2CameraParameter::PylonROS2CameraParameter() :
     device_user_id_(""),
     frame_rate_(5.0),
     camera_info_url_(""),
-    image_encoding_(""),
-    use_nitros_publisher_(true)
+    image_encoding_("")
 {
     // information logging severity mode
     //rcutils_ret_t __attribute__((unused)) res = rcutils_logging_set_logger_level(LOGGER.get_name(), RCUTILS_LOG_SEVERITY_DEBUG);
@@ -531,15 +530,6 @@ void PylonROS2CameraParameter::readFromRosParameterServer(rclcpp::Node& nh)
     }
     
     nh.get_parameter("grab_strategy", this->grab_strategy_);
-
-    // use_nitros_publisher
-    RCLCPP_DEBUG(LOGGER, "---> use_nitros_publisher");
-    if (!nh.has_parameter("use_nitros_publisher"))
-    {
-        nh.declare_parameter<bool>("use_nitros_publisher", true);
-    }
-
-    nh.get_parameter("use_nitros_publisher", this->use_nitros_publisher_);
 
     // validating parameters
     this->validateParameterSet(nh);
