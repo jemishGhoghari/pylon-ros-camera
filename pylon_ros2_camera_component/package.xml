@@ -46,6 +46,10 @@
   <exec_depend>image_geometry</exec_depend>
   <exec_depend>image_transport</exec_depend>
   <exec_depend>diagnostic_updater</exec_depend>
+  <exec_depend>isaac_ros_nitros</exec_depend>
+  <exec_depend>isaac_ros_managed_nitros</exec_depend>
+  <exec_depend>isaac_ros_nitros_image_type</exec_depend>
+  <exec_depend>isaac_ros_common</exec_depend>
 
   <!-- The auto-magic functions for ease to use of the ament linters in CMake. -->
   <test_depend>ament_lint_auto</test_depend>
